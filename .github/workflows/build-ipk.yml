@@ -32,6 +32,16 @@ on:
     types:
       - published
 
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build from'
+        required: true
+        default: 'master'
+      version:
+        description: 'Version number'
+        required: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,11 +49,15 @@ jobs:
     steps:
       - name: Checkout source tree
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
 
       - name: Build ipk file
         env:
-          RELEASE_TYPE: ${{ github.event_name }}
+          VERSION: ${{ github.event.inputs.version }}
         run: |
+          echo "Building from branch: ${{ github.event.inputs.branch }}"
+          echo "Version: ${{ github.event.inputs.version }}"
           pushd .github
           fakeroot bash build-ipk.sh
           echo "ASSET_NAME=$(ls *.ipk)" >> $GITHUB_ENV
@@ -51,15 +65,6 @@ jobs:
 
       - name: Publishing to GitHub Artifacts
         uses: actions/upload-artifact@v4
-        if: github.event_name != 'release'
         with:
           name: ${{ env.ASSET_NAME }}
           path: .github/${{ env.ASSET_NAME }}
-
-      - name: Publishing to GitHub Releases
-        uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'release'
-        with:
-          repo_token: ${{ github.token }}
-          file: .github/${{ env.ASSET_NAME }}
-          tag: ${{ github.ref }}
